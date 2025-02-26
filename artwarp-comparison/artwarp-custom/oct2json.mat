@@ -1,0 +1,74 @@
+% Importations
+pkg load json
+
+
+% Parameters
+mainFolder = './resources/ARTwarp_outputs/OCTs';
+outFolder = './resources/ARTwarp_outputs/JSONs';
+
+
+
+% Main
+allSubFolders = dir(mainFolder);
+allSubFolders = allSubFolders([allSubFolders.isdir]); % Keep only directories
+
+
+% Loop through each subfolder
+for i = 1:length(allSubFolders)
+    subfolderName = allSubFolders(i).name;
+    
+    % Ignore '.' and '..' folders
+    if strcmp(subfolderName, '.') || strcmp(subfolderName, '..')
+        continue;
+    end
+    
+    % Create folder to hold converted files
+    newFolderPath = fullfile(outFolder, subfolderName);
+    if ~exist(newFolderPath, 'dir')
+        mkdir(newFolderPath); % Create the folder if it does not exist
+        fprintf('Folder created: %s\n', newFolderPath);
+    else
+        fprintf('Folder already exists: %s\n', newFolderPath);
+    end
+
+    % Full path of the subfolder
+    subfolderPath = fullfile(mainFolder, subfolderName);
+
+    % Get all files in the subfolder
+    files = dir(fullfile(subfolderPath, '*.*')); % Change filter if needed
+
+    % Loop through each file
+    for j = 1:length(files)
+        fileName = files(j).name;
+        
+        % Ignore '.' and '..' in file list
+        if strcmp(fileName, '.') || strcmp(fileName, '..')
+            continue;
+        end
+
+        % Ignore '' in file list
+        if strcmp(fileName, 'ARTwarp.mat')
+            continue;
+        end
+        
+        % Full file path
+        filePath = fullfile(subfolderPath, fileName);
+        
+        % Load file
+        data = load(filePath);
+        jsonStr = jsonencode(data.DATA);
+
+        % Save file as json
+        fid = fopen(fullfile(newFolderPath, strrep(fileName, '.mat', '.json')), 'w');
+        fprintf(fid, '%s', jsonStr); 
+        fclose(fid);
+    
+    end
+end
+
+
+
+
+
+
+

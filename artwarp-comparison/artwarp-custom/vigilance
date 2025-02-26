@@ -1,0 +1,45 @@
+# Created by Octave 5.2.0, Mon Feb 03 09:48:59 2025 CET <loic@DOLPHINFREE-LOIC>
+# name: bias
+# type: global scalar
+9.9999999999999995e-07
+
+
+# name: learningRate
+# type: global scalar
+0.10000000000000001
+
+
+# name: maxNumCategories
+# type: global scalar
+527
+
+
+# name: maxNumIterations
+# type: global scalar
+25
+
+
+# name: sampleInterval
+# type: global scalar
+0.01
+
+
+# name: resample
+# type: global scalar
+0
+
+
+# name: callback1
+# type: global sq_string
+# elements: 1
+# length: 458
+global vigilance bias learningRate maxNumCategories maxNumIterations sampleInterval resample callback1 callback2;  shh=get(0,'ShowHiddenHandles');  set(0,'ShowHiddenHandles','on');  delete(get(0,'CurrentFigure'));  set(0,'ShowHiddenHandles',shh);  filename = which('ARTwarp.mat');  filename = sprintf('\''%s\''',filename);  eval(['save ' filename ' vigilance bias learningRate maxNumCategories maxNumIterations sampleInterval resample callback1 callback2']);
+
+
+# name: callback2
+# type: global sq_string
+# elements: 1
+# length: 161
+h1 = findobj('Tag','resample'); h2 = findobj('Tag','sampleInterval');s1 = get(h1,'value'); if s1 == 1; set(h2, 'Enable', 'on'); else set(h2, 'Enable', 'off');end
+
+

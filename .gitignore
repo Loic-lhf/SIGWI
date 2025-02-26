@@ -1,27 +1,34 @@
 # select drafts
-./drafts/*
+/drafts/*
 
-!./drafts/Light_verification_ARTwarp_outputs.py
-!./drafts/matlab2python.py
-!./drafts/MCCI.py
-!./drafts/select_whistles.py
-!./drafts/WCT_old_analysis.py
-!./whistles_per_day
-!./whistles_per_sequence
+!/drafts/Light_verification_ARTwarp_outputs.py
+!/drafts/matlab2python.py
+!/drafts/MCCI.py
+!/drafts/select_whistles.py
+!/drafts/WCT_old_analysis.ipynb
+!/drafts/whistles_per_day.py
+!/drafts/whistles_per_sequence.py
 
 # select resouces
-./resources/*
+/resources/MCCI_outputs/*
+/resources/OLD_ARTwarp_outputs/*
 
-!./resources/ARTwarp_outputs/Verification_outputs
-!./resources/ARTwarp_outputs/clean_JSONs
+/resources/ARTwarp_outputs/*
+!/resources/ARTwarp_outputs/Verification_outputs
+!/resources/ARTwarp_outputs/clean_JSONs
 
-!./resources/DF-whistles/group_ID_datetime.csv
-!./resources/DF-whistles/whistles_features.csv
-!./resources/DF-whistles/smooth/all
+/resources/DF-whistles/*
+!/resources/DF-whistles/group_ID_datetime.csv
+!/resources/DF-whistles/whistles_features.csv
 
-!./resources/dtw_resources/contour_features.csv
-!./resources/dtw_resources/contour_with_category.csv
-!./resources/dtw_resources/dtw_distance_matrix.npy
-!./resources/dtw_resources/dtw_distance_matrix_IDs.npy
-!./resources/dtw_resources/dtw_distance_matrix_reduced.npy
-!./resources/dtw_resources/dtw_distance_matrix_reduced_IDs.npy
+!/resources/DF-whistles/smooth
+!/resources/DF-whistles/smooth/all
+/resources/DF-whistles/smooth/1s
+/resources/DF-whistles/smooth/500ms
+/resources/DF-whistles/smooth/200ms
+/resources/DF-whistles/smooth/100ms
+
+/resources/dtw_resources/*
+!/resources/dtw_resources/contour_features.csv
+!/resources/dtw_resources/contours_with_category.csv
+!/resources/dtw_resources/dtw_distance_matrix_reduced_IDs.npy
