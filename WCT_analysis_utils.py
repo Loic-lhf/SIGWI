@@ -7,11 +7,14 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from datetime import datetime
+import scipy.optimize as optimize
 from scipy.interpolate import interp1d
 
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib.patches import Ellipse
+import matplotlib.transforms as transforms
 
 from scipy import stats
 from scikit_posthocs import posthoc_dunn
@@ -649,6 +652,95 @@ def get_umap(dtw_matrix, save_to, min_dist=0.1, n_neighbors=100, verbose=True):
 
     if verbose:
         print(f"\tSuccessfully saved the umap results to {save_to}.")
+
+def confidence_ellipse(x, y, ax, n_std=2.0, **kwargs):
+    """
+    Create a plot of the covariance confidence ellipse of *x* and *y*.
+    
+    Parameters
+    ----------
+    x, y : array-like, shape (n, )
+        Input data.
+    ax : matplotlib.axes.Axes
+        The axes object to draw the ellipse into.
+    n_std : float
+        The number of standard deviations to determine the ellipse's radiuses.
+    **kwargs
+        Forwarded to `~matplotlib.patches.Ellipse`
+    """
+    if x.size != y.size:
+        raise ValueError("x and y must be the same size")
+
+    cov = np.cov(x, y)
+    pearson = cov[0, 1]/np.sqrt(cov[0, 0] * cov[1, 1])
+    
+    # Using a special case to obtain the eigenvalues of this
+    # two-dimensional dataset.
+    ell_radius_x = np.sqrt(1 + pearson)
+    ell_radius_y = np.sqrt(1 - pearson)
+    ellipse = Ellipse((0, 0), width=ell_radius_x * 2, height=ell_radius_y * 2,
+                      **kwargs)
+
+    # Calculating the standard deviation of x from
+    # the squareroot of the variance and multiplying
+    # with the given number of standard deviations.
+    scale_x = np.sqrt(cov[0, 0]) * n_std
+    scale_y = np.sqrt(cov[1, 1]) * n_std
+
+    transf = transforms.Affine2D() \
+        .rotate_deg(45) \
+        .scale(scale_x, scale_y) \
+        .translate(np.mean(x), np.mean(y))
+
+    ellipse.set_transform(transf + ax.transData)
+    return ax.add_patch(ellipse)
+
+def mandelbrot_zipf(rank, c, s, b):
+    """
+    Mandelbrot-Zipf law: f = c / (rank + s)^b
+    c: normalization constant
+    s: parameter to adjust the tail of the distribution
+    b: exponent
+    """
+    return c / (rank + s)**b
+
+def mandelbrot_law_fit(df):
+    """
+    Analyze if the given sizes follow Mandelbrot's law.
+    
+    Parameters:
+    df (DataFrame): Rank and Frequency of each element
+    
+    Returns:
+    dict: Contains fitting parameters and goodness of fit metrics
+    """
+    ranks = df["Rank"]
+    frequencies = df["Frequency"]
+       
+    # Perform non-linear least squares fitting
+    try:
+        # Initial guesses: c = max frequency, s = 1, b = 1
+        popt, pcov = optimize.curve_fit(mandelbrot_zipf, ranks, frequencies, 
+                                        p0=[max(frequencies), 1, 1],
+                                        bounds=([0, 0, 0], [np.inf, np.inf, 3]))
+        
+        # Calculate R-squared to assess goodness of fit
+        residuals = frequencies - mandelbrot_zipf(ranks, *popt)
+        ss_res = np.sum(residuals**2)
+        ss_tot = np.sum((frequencies - np.mean(frequencies))**2)
+        r_squared = 1 - (ss_res / ss_tot)
+                
+        return {
+            'c': popt[0],  # Normalization constant
+            's': popt[1],  # Adjustment parameter
+            'b': popt[2],  # Exponent
+            'r_squared': r_squared,
+            'is_fit_good': r_squared > 0.8  # Threshold for a good fit
+        }
+    
+    except Exception as e:
+        print(f"Error fitting Mandelbrot's law: {e}")
+        return None
 
 
 #%%## Main #####
