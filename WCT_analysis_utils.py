@@ -1,6 +1,7 @@
 #%%## Importations #####
 import os
 import json
+import math
 import warnings
 import itertools
 import numpy as np
@@ -8,13 +9,14 @@ import pandas as pd
 from tqdm import tqdm
 from datetime import datetime
 import scipy.optimize as optimize
+from string import ascii_lowercase
 from scipy.interpolate import interp1d
 
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from matplotlib.patches import Ellipse
 import matplotlib.transforms as transforms
+from matplotlib.patches import Ellipse, Patch
 
 from scipy import stats
 from scikit_posthocs import posthoc_dunn
@@ -464,7 +466,7 @@ def kw_test(df, y, name_cat, pairwise=True):
     else:
         return h, hp
 
-def pairwise_tests(df, cat_name, y, test_type="fisher"):
+def old_pairwise_tests(df, cat_name, y, test_type="fisher"):
     combinations = list(itertools.combinations(df[cat_name].unique(), 2))
     results = []
     for combination in combinations:
@@ -741,6 +743,283 @@ def mandelbrot_law_fit(df):
     except Exception as e:
         print(f"Error fitting Mandelbrot's law: {e}")
         return None
+
+def vertical_proportion_plot(
+    df, xcol, hue, xorder,
+    legend_title="", xlabel="", ylabel="", maintitle="",
+    palette=["#648fff", "#dc267f", "#ffb000"]
+    ):
+    
+    if len(xorder)>0:
+        df[xcol] = pd.Categorical(df[xcol], xorder)
+    hue_types = df[hue].unique()
+
+    xvalue_sizes = []
+    for xvalue in xorder:
+        xvalue_sizes += [len(df[df[xcol] == xvalue])]
+
+    sns.set_style("ticks")
+    fig, axs = plt.subplots(1,1, figsize=(6, 7))
+    sns.histplot(
+        data=df, x=xcol, hue=hue,
+        stat='proportion', multiple="fill", shrink=1,
+        alpha = 1, palette=palette, edgecolor="black",
+        ax=axs, legend=False
+        )
+
+    # Add percentage labels to segments
+    for i, state in enumerate(xorder):
+        axs.text(i, 1, f"(N={xvalue_sizes[i]})", 
+            ha='center', va='bottom', color='black')
+
+        state_data = df[df[xcol] == state]
+        counts = state_data[hue].value_counts()
+        total = counts.sum()
+        
+        y_bottom = 0
+        for htype in hue_types:
+            if htype in counts:
+                height = counts[htype] / total
+                if height > 0.05:  # Only add text if segment is large enough
+                    axs.text(
+                        i, 1 - (y_bottom + height/2), 
+                        f"{height:.0%}", 
+                        ha='center', va='center', 
+                        color='black', fontweight='bold')
+                y_bottom += height
+
+    # Custom legend
+    legend_elements = [
+        Patch(facecolor=color, label=whistle) 
+        for whistle, color in zip(hue_types, palette)]
+    axs.legend(
+        handles=legend_elements, title=legend_title,
+        frameon=True, framealpha=1, edgecolor="black", fontsize=10,
+        bbox_to_anchor=(0.5, 1.1), loc='center', ncol=3)
+
+    axs.set_yticklabels(np.arange(0,101,20))
+    axs.tick_params(axis='both', which='major', labelsize=12)
+    
+    axs.set_xlabel(xlabel, fontsize=15)
+    axs.set_ylabel(ylabel, fontsize=15)
+    fig.suptitle(maintitle, fontsize=15)
+    fig.subplots_adjust(top=0.83)
+    return fig, axs
+
+def horizontal_proportion_plot(
+    df, ycol, hue, yorder,
+    legend_title="", xlabel="", ylabel="", maintitle="",
+    palette=["#648fff", "#dc267f", "#ffb000"]
+    ):
+    
+    if len(yorder)>0:
+        df[ycol] = pd.Categorical(df[ycol], yorder)
+    hue_types = df[hue].unique()
+
+    yvalue_sizes = []
+    for yvalue in yorder:
+        yvalue_sizes += [len(df[df[ycol] == yvalue])]
+
+    sns.set_style("ticks")
+    fig, axs = plt.subplots(1,1, figsize=(8, 6))
+    sns.histplot(
+        data=df, y=ycol, hue=hue,
+        stat='proportion', multiple="fill", shrink=1,
+        alpha = 1, palette=palette, edgecolor="black",
+        ax=axs, legend=False
+        )
+
+    # Add percentage labels to segments
+    for i, state in enumerate(yorder):
+        axs.text(-0.025, i+0.025, f"(N={yvalue_sizes[i]})", 
+            ha='right', va='top', color='black')
+
+        state_data = df[df[ycol] == state]
+        counts = state_data[hue].value_counts()
+        total = counts.sum()
+        
+        y_bottom = 0
+        for htype in hue_types:
+            if htype in counts:
+                height = counts[htype] / total
+                if height > 0.05:  # Only add text if segment is large enough
+                    axs.text(
+                        1 - (y_bottom + height/2), i,
+                        f"{height:.0%}", 
+                        ha='center', va='center', 
+                        color='black', fontweight='bold')
+                y_bottom += height
+
+    # Custom legend
+    legend_elements = [
+        Patch(facecolor=color, label=whistle) 
+        for whistle, color in zip(hue_types, palette)]
+    axs.legend(
+        handles=legend_elements, title=legend_title,
+        frameon=True, framealpha=1, edgecolor="black", fontsize=10,
+        bbox_to_anchor=(0.5, 1.075), loc='center', ncol=3)
+
+    axs.set_yticklabels(yorder, va="bottom")
+    axs.set_xticklabels(np.arange(0,101,20))
+    axs.tick_params(axis='both', which='major', labelsize=12)
+    
+    axs.set_xlabel(xlabel, fontsize=15)
+    axs.set_ylabel(ylabel, fontsize=15)
+    fig.suptitle(maintitle, fontsize=15)
+    fig.subplots_adjust(top=0.83)
+    return fig, axs
+
+def fisher_tests(df, feature_col, feature_of_interest, group_col, alpha=0.05):
+    """
+    Create a table showing proportions with letter annotations for significance groups.
+    
+    Parameters:
+    df (DataFrame): The dataframe containing the data
+    feature_col (str): Column name for the feature of interest (e.g., 'whistle_type')
+    group_col (str): Column name for the grouping variable (e.g., 'activation_state')
+    alpha (float): Significance level
+    
+    Returns:
+    DataFrame: A table with proportions and significance letters
+    """
+    # Create contingency table
+    contingency = pd.crosstab(df[group_col], df[feature_col])
+    
+    # Calculate proportions for the feature of interest
+    result_df = pd.DataFrame(index=contingency.index)
+    
+    # Calculate proportion for the feature of interest
+    if feature_of_interest in contingency.columns:
+        result_df['proportion'] = contingency[feature_of_interest] / contingency.sum(axis=1) * 100
+    else:
+        # If feature_of_interest isn't a column, we need to handle this case
+        result_df['proportion'] = 0
+        
+    # Get all pairs of groups
+    groups = result_df.index.tolist()
+    n_groups = len(groups)
+    
+    # Matrix to store p-values between each pair of groups
+    p_values = pd.DataFrame(columns=["mod_1", "mod_2", "reject_H0"])
+    
+    # Compute p-values for all pairs
+    for i, j in itertools.combinations(range(n_groups), 2):
+        g1, g2 = groups[i], groups[j]
+        
+        # Extract data for the two groups
+        sig1 = contingency.loc[g1, feature_of_interest] if feature_of_interest in contingency.columns else 0
+        non_sig1 = contingency.loc[g1].sum() - sig1
+        
+        sig2 = contingency.loc[g2, feature_of_interest] if feature_of_interest in contingency.columns else 0
+        non_sig2 = contingency.loc[g2].sum() - sig2
+        
+        # Run Fisher's exact test
+        table = np.array([[sig1, non_sig1], [sig2, non_sig2]])
+        _, p_value = stats.fisher_exact(table)
+        
+        p_values.loc[len(p_values)] = [g1, g2, p_value < alpha]
+
+    return p_values
+
+
+
+#%%## compact letter display #####
+# Credits : https://github.com/sujeet-bhalerao/compact-letter-display/blob/main/compactletterdisplay/cld_calculator.py
+def get_next_unused_letter(columns):
+    """
+    Identify the next unused lowercase letter to use for compact lettering.
+  
+    Parameters:
+    columns (list of strs): List of current column groups.
+
+    Returns:
+    str or None: Returns the next available lowercase letter, or None if all 26 letters are already used.
+    """
+    used_letters = set(letter for col in columns for letter in col if letter != '')
+    
+    # Iterate through the alphabet to find an unused letter.
+    for letter in 'abcdefghijklmnopqrstuvwxyz':
+        if letter not in used_letters:
+            return letter
+    
+    # Return None if all letters are used (which should only happen with >26 columns).
+    return None  
+
+def absorb_columns(columns):
+    """
+    Absorbs redundant columns by comparing indices.
+
+    Parameters:
+    columns (list of strs): List of current column groups.
+
+    Returns:
+    list of strs: The processed list of column groups.
+    """
+    absorbed = True
+    while absorbed:
+        absorbed = False
+        for i, col1 in enumerate(columns):
+            for j, col2 in enumerate(columns):
+                if i != j:
+                    indices1 = {index for index, letter in enumerate(col1) if letter != ''}
+                    indices2 = {index for index, letter in enumerate(col2) if letter != ''}
+                    if indices1.issubset(indices2):
+                        absorbed = True
+                        columns.pop(i)
+                        break
+            if absorbed:
+                break
+    return columns
+
+def compact_letter_display(significant_pairs, columns):
+    """
+    Generate compact letter display (CLD) for columns based on significant pairs.
+    
+    Parameters:
+    significant_pairs (list of tuples): Significant pairs identified in a Tukey HSD test.
+    columns (list of str): Columns in the DataFrame.
+
+    Returns:
+    list of str: The compact letter display representation.
+    """
+    num_groups = len(columns)
+
+    # Map column names to indices.
+    col_to_index = {col: idx for idx, col in enumerate(columns)}
+
+    # Map significant pair names to indices.
+    significant_pairs = [(col_to_index[col1], col_to_index[col2]) for col1, col2 in significant_pairs]
+
+
+    columns = [['a'] * num_groups]
+    for pair_idx, (i, j) in enumerate(significant_pairs):
+        connected = False
+        for idx, column in enumerate(columns):
+            # When current pair have the same letter...
+            if column[i] == column[j] and column[i] != '':
+                connected = True
+                new_letter = get_next_unused_letter(columns)
+                new_column = column.copy() 
+                new_column = [new_letter if column[i] != '' else '' for i in range(num_groups)]
+                new_column[i] = ''
+                column[j] = ''
+                columns[idx] = column
+                columns.append(new_column)
+                columns = absorb_columns(columns)
+            if connected:
+                break 
+
+    # Adjust letters so that the first group has 'a', the second has 'b', etc.
+    sorter = lambda col: next((i for i, value in enumerate(col) if value != ''), len(col))
+    columns = sorted(columns, key=sorter)
+    for ind, c in enumerate(columns):
+        new_letters = [chr(ord('a') + ind) if _ != '' else '' for _ in c]
+        columns[ind] = new_letters
+
+    # Generate compact letter displays from the columns list.
+    result = [''.join(columns[k][n] for k in range(len(columns)) if columns[k][n] != '') for n in range(num_groups)]
+ 
+    return result
 
 
 #%%## Main #####
