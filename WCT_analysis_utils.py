@@ -747,7 +747,7 @@ def mandelbrot_law_fit(df):
 def vertical_proportion_plot(
     df, xcol, hue, xorder,
     legend_title="", xlabel="", ylabel="", maintitle="",
-    palette=["#648fff", "#dc267f", "#ffb000"]
+    palette=["#648fff", "#dc267f", "#ffb000"], show_sizes=True
     ):
     
     if len(xorder)>0:
@@ -769,8 +769,9 @@ def vertical_proportion_plot(
 
     # Add percentage labels to segments
     for i, state in enumerate(xorder):
-        axs.text(i, 1, f"(N={xvalue_sizes[i]})", 
-            ha='center', va='bottom', color='black')
+        if show_sizes:
+            axs.text(i, 1, f"(N={xvalue_sizes[i]})", 
+                ha='center', va='bottom', color='black')
 
         state_data = df[df[xcol] == state]
         counts = state_data[hue].value_counts()
@@ -809,7 +810,7 @@ def vertical_proportion_plot(
 def horizontal_proportion_plot(
     df, ycol, hue, yorder,
     legend_title="", xlabel="", ylabel="", maintitle="",
-    palette=["#648fff", "#dc267f", "#ffb000"]
+    palette=["#648fff", "#dc267f", "#ffb000"], show_sizes=True
     ):
     
     if len(yorder)>0:
@@ -831,8 +832,9 @@ def horizontal_proportion_plot(
 
     # Add percentage labels to segments
     for i, state in enumerate(yorder):
-        axs.text(-0.025, i+0.025, f"(N={yvalue_sizes[i]})", 
-            ha='right', va='top', color='black')
+        if show_sizes:
+            axs.text(-0.025, i+0.025, f"(N={yvalue_sizes[i]})", 
+                ha='right', va='top', color='black')
 
         state_data = df[df[ycol] == state]
         counts = state_data[hue].value_counts()
@@ -869,7 +871,7 @@ def horizontal_proportion_plot(
     fig.subplots_adjust(top=0.83)
     return fig, axs
 
-def fisher_tests(df, feature_col, feature_of_interest, group_col, alpha=0.05):
+def fisher_tests(df, feature_col, feature_of_interest, group_col, alpha=0.05, get_values=False):
     """
     Create a table showing proportions with letter annotations for significance groups.
     
@@ -900,7 +902,10 @@ def fisher_tests(df, feature_col, feature_of_interest, group_col, alpha=0.05):
     n_groups = len(groups)
     
     # Matrix to store p-values between each pair of groups
-    p_values = pd.DataFrame(columns=["mod_1", "mod_2", "reject_H0"])
+    if get_values:
+        p_values = pd.DataFrame(columns=["mod_1", "mod_2", "reject_H0", "p_value", "odds_ratio"])
+    else:
+        p_values = pd.DataFrame(columns=["mod_1", "mod_2", "reject_H0"])
     
     # Compute p-values for all pairs
     for i, j in itertools.combinations(range(n_groups), 2):
@@ -915,9 +920,12 @@ def fisher_tests(df, feature_col, feature_of_interest, group_col, alpha=0.05):
         
         # Run Fisher's exact test
         table = np.array([[sig1, non_sig1], [sig2, non_sig2]])
-        _, p_value = stats.fisher_exact(table)
-        
-        p_values.loc[len(p_values)] = [g1, g2, p_value < alpha]
+        odds_ratio, p_value = stats.fisher_exact(table)
+
+        if get_values:
+            p_values.loc[len(p_values)] = [g1, g2, p_value < alpha, p_value, odds_ratio]
+        else:
+            p_values.loc[len(p_values)] = [g1, g2, p_value < alpha]
 
     return p_values
 
