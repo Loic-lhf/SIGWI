@@ -850,6 +850,8 @@ def horizontal_proportion_plot(
                         f"{height:.0%}", 
                         ha='center', va='center', 
                         color='black', fontweight='bold')
+                else:
+                    print(f"text '{height:.0%}' not added for {state}-{htype}")
                 y_bottom += height
 
     # Custom legend
